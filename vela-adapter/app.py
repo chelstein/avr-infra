@@ -137,6 +137,12 @@ async def intake_voice(payload: VoiceIntakeRequest):
     for field in ("channel", "provider", "session_id", "caller_id", "called_number", "raw_transcript"):
         normalized.setdefault(field, getattr(payload, field))
 
+    # Normalize confidence to 0.0–1.0 range; model sometimes returns 0–100 integer
+    if "workflow_decision" in normalized:
+        conf = normalized["workflow_decision"].get("confidence", 0)
+        if isinstance(conf, (int, float)) and conf > 1:
+            normalized["workflow_decision"]["confidence"] = round(conf / 100, 4)
+
     # Store in call log with timestamp
     normalized["_received_at"] = datetime.now(timezone.utc).isoformat()
     call_log.append(normalized)
@@ -330,7 +336,7 @@ async function refresh() {
   const handoff = calls.filter(c=>c.workflow_decision?.human_handoff_required).length;
   const autoE   = calls.filter(c=>c.ticket_fields?.automation_eligible).length;
   const idv     = calls.filter(c=>c.workflow_decision?.identity_verification_required).length;
-  const avgConf = calls.length ? (calls.reduce((a,c)=>a+(c.workflow_decision?.confidence||0),0)/calls.length) : 0;
+  const avgConf = calls.length ? (calls.reduce((a,c)=>a+Math.min(1, c.workflow_decision?.confidence||0),0)/calls.length) : 0;
   document.getElementById('s-total').textContent  = calls.length;
   document.getElementById('s-handoff').textContent = handoff;
   document.getElementById('s-auto').textContent   = autoE;
@@ -346,7 +352,8 @@ async function refresh() {
     const tf  = c.ticket_fields || {};
     const wd  = c.workflow_decision || {};
     const urg = urgencyClass(tf.urgency);
-    const conf = wd.confidence || 0;
+    // Guard: backend normalizes, frontend clamps in case of stale cache entries
+    const conf = Math.min(1, wd.confidence || 0);
     const confPct = (conf * 100).toFixed(0) + '%';
     const badges = [];
     if (wd.human_handoff_required)        badges.push('<span class="badge badge-handoff">&#128222; Handoff</span>');
