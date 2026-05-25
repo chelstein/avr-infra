@@ -1,0 +1,57 @@
+# DigitalOcean App Platform spec for vela-adapter
+# Deploy with: doctl apps create --spec do-app-spec.yml
+# Update with:  doctl apps update <app-id> --spec do-app-spec.yml
+
+name: vela-adapter
+region: nyc
+
+services:
+  - name: vela-adapter
+    # Build from source in this repo
+    github:
+      repo: chelstein/avr-infra
+      branch: main
+      deploy_on_push: true
+    source_dir: vela-adapter
+    dockerfile_path: vela-adapter/Dockerfile
+
+    # HTTP port the container listens on
+    http_port: 8088
+
+    # Scale: start with 1 instance, Basic plan
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+
+    # Health check
+    health_check:
+      http_path: /healthz
+      initial_delay_seconds: 10
+      period_seconds: 30
+
+    # Public HTTP routes
+    routes:
+      - path: /
+
+    # Environment variables
+    # Secrets (MODEL_ACCESS_KEY) must be set via DO dashboard or doctl
+    envs:
+      - key: PORT
+        value: "8088"
+        scope: RUN_TIME
+
+      - key: DO_INFERENCE_BASE_URL
+        value: https://inference.do-ai.run/v1
+        scope: RUN_TIME
+
+      - key: DO_INFERENCE_MODEL
+        value: router:gmi-service-desk
+        scope: RUN_TIME
+
+      # Set these as secrets — do NOT hardcode values here
+      - key: MODEL_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+
+      - key: N8N_WEBHOOK_URL
+        scope: RUN_TIME
+        type: SECRET
