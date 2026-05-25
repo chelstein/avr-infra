@@ -1,0 +1,21 @@
+services:
+  vela-adapter:
+    build:
+      context: ./vela-adapter
+    container_name: vela-adapter
+    restart: always
+    environment:
+      - PORT=${VELA_ADAPTER_PORT:-8088}
+      - MODEL_ACCESS_KEY=${MODEL_ACCESS_KEY}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - DO_INFERENCE_BASE_URL=${DO_INFERENCE_BASE_URL:-https://inference.do-ai.run/v1}
+      - DO_INFERENCE_MODEL=${DO_INFERENCE_MODEL:-router:gmi-service-desk}
+    ports:
+      - "${VELA_ADAPTER_PORT:-8088}:${VELA_ADAPTER_PORT:-8088}"
+    networks:
+      - avr
+
+networks:
+  avr:
+    name: avr
+    external: true
